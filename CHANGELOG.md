@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.46](https://github.com/kunchenguid/lavish-axi/compare/lavish-axi-v0.1.45...lavish-axi-v0.1.46) (2026-07-31)
+
+
+### Features
+
+* add multiplexed event stream foundation ([#212](https://github.com/kunchenguid/lavish-axi/issues/212)) ([34ed7f3](https://github.com/kunchenguid/lavish-axi/commit/34ed7f39875e472546935237b0f545d08a54f828))
+
+
+### Bug Fixes
+
+* restore long-poll-only feedback delivery ([#214](https://github.com/kunchenguid/lavish-axi/issues/214)) ([7c64184](https://github.com/kunchenguid/lavish-axi/commit/7c64184adce8b2b18c1cb072779305303b8079d9))
+
 ## [0.1.45](https://github.com/kunchenguid/lavish-axi/compare/lavish-axi-v0.1.44...lavish-axi-v0.1.45) (2026-07-31)
 
 
