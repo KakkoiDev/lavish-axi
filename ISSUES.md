@@ -34,6 +34,7 @@ unresolved reference computes to the initial value. Detecting a handful of high-
 (`background-color`, `border-*-color`, `color`) is enough to catch this class.
 
 **Insertion points:**
+
 - Detection: `src/chrome-client.js`, alongside the existing in-iframe geometry probes.
 - User-facing copy: `src/layout-warnings.js`, `RULE_DESCRIPTIONS` around line 85-99. Add a rule id
   such as `unresolved-custom-property`.

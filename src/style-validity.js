@@ -30,6 +30,10 @@ export function definedCustomProperties(cssText) {
 
 // `resolve` reports whether a property has a value at runtime, covering properties set by inline
 // styles or script rather than by a stylesheet. Omitting it falls back to stylesheet text alone.
+/**
+ * @param {{ authored?: string, loaded?: string[], resolve?: (name: string) => string | null | undefined }} [input]
+ * @returns {string[]}
+ */
 export function unresolvedCustomProperties({ authored = "", loaded = [], resolve } = {}) {
   const defined = new Set(definedCustomProperties(authored));
   for (const sheet of loaded) {
@@ -43,6 +47,9 @@ export function unresolvedCustomProperties({ authored = "", loaded = [], resolve
   return unresolved.sort();
 }
 
+/**
+ * @param {Parameters<typeof unresolvedCustomProperties>[0]} [input]
+ */
 export function styleValidityFindings(input) {
   const names = unresolvedCustomProperties(input);
   if (!names.length) return [];
@@ -69,7 +76,9 @@ export function collectStyleValidityFindings(doc = globalThis.document, win = gl
       return [];
     }
     const text = [...(rules ?? [])].map((rule) => rule.cssText).join("\n");
-    (sheet.ownerNode?.tagName === "STYLE" ? authored : loaded).push(text);
+    const owner = sheet.ownerNode;
+    const isInlineStyleTag = !!owner && "tagName" in owner && owner.tagName === "STYLE";
+    (isInlineStyleTag ? authored : loaded).push(text);
   }
   const root = doc?.documentElement;
   const resolve =
