@@ -9,10 +9,10 @@ See `ISSUES.md` for the two gaps and where they sit in the codebase.
 pipeline, so running this fork behaves identically to upstream. Do not open a PR describing this as a
 working fix.
 
-| Commit | What it adds | Wired in |
-|---|---|---|
-| `1b86e40` | `ISSUES.md` - the two gaps, located | n/a |
-| `93b32d1` | `src/style-validity.js` + 9 tests | **No** |
+| Commit    | What it adds                        | Wired in |
+| --------- | ----------------------------------- | -------- |
+| `1b86e40` | `ISSUES.md` - the two gaps, located | n/a      |
+| `93b32d1` | `src/style-validity.js` + 9 tests   | **No**   |
 
 ## The commit that matters
 
