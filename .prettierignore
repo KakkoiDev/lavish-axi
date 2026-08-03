@@ -11,3 +11,6 @@ plugin.json
 .claude/settings.local.json
 # Canonical two-line @AGENTS.md pointer; prettier would add a blank line.
 CLAUDE.md
+# Byte-exact snapshot of the generated Mermaid snippet; test/cli-output.test.js
+# compares it verbatim, so reformatting it would break that assertion.
+task-evidence

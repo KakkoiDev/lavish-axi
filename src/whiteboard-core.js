@@ -8,6 +8,28 @@ export const WHITEBOARD_PROMPT_TAG = "whiteboard";
 export const EXCALIDRAW_SCENE_TARGET_TYPE = "excalidraw-scene";
 export const WHITEBOARD_TEXT_METRICS_VERSION = 1;
 
+// Default font family for newly converted diagram text in the whiteboard.
+// Matches FONT_FAMILY.Cascadia (3) from @excalidraw/excalidraw — the bundled
+// code/monospace font. Change this only to pick a different default face;
+// the numeric values are Virgil=1 (hand-drawn), Helvetica=2, Cascadia=3.
+export const DIAGRAM_DEFAULT_FONT_FAMILY = 3;
+
+// Fills in the default font family on mermaid-to-excalidraw text skeletons and
+// on the labels of container and arrow skeletons before materialization. An
+// explicit fontFamily already on the skeleton or label always wins.
+export function applyDiagramDefaultFontFamily(skeletons) {
+  for (const skeleton of Array.isArray(skeletons) ? skeletons : []) {
+    if (!skeleton) continue;
+    if (skeleton.type === "text" && skeleton.fontFamily == null) {
+      skeleton.fontFamily = DIAGRAM_DEFAULT_FONT_FAMILY;
+    }
+    if (skeleton.label && skeleton.label.fontFamily == null) {
+      skeleton.label.fontFamily = DIAGRAM_DEFAULT_FONT_FAMILY;
+    }
+  }
+  return skeletons;
+}
+
 export const SUMMARY_MAX_LINES = 40;
 export const SUMMARY_MAX_LINE_CHARS = 200;
 const SUMMARY_MOVE_EPSILON_PX = 2;

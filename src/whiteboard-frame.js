@@ -30,6 +30,7 @@ import "@excalidraw/excalidraw/index.css";
 import "./whiteboard-frame.css";
 
 import {
+  applyDiagramDefaultFontFamily,
   convertExcalidrawSkeletonsAfterFontsLoad,
   createWhiteboardPersistencePayload,
   findDuplicateElementIds,
@@ -431,6 +432,10 @@ async function convertSource(source) {
     themeVariables: { fontSize: "16px" },
   });
   const skeletons = restoreMermaidLabelLineBreaks(parsedSkeletons);
+  // Default newly converted diagram text to the code (monospace) font instead
+  // of the hand-drawn face. Per-element font choices in saved scenes and
+  // explicit skeleton fontFamily fields still override this default.
+  applyDiagramDefaultFontFamily(skeletons);
   const materialize = (input) => {
     // Preserve Mermaid node/edge identity for edit summaries; regenerate only
     // when upstream emitted colliding ids (parallel edges), where uniqueness

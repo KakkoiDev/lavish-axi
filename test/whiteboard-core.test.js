@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  applyDiagramDefaultFontFamily,
   createWhiteboardPersistencePayload,
+  DIAGRAM_DEFAULT_FONT_FAMILY,
   findDuplicateElementIds,
   normalizeExcalidrawSceneTarget,
   repairSavedSceneTextMetrics,
@@ -361,6 +363,40 @@ test("normalizeExcalidrawSceneTarget strips to the fixed shape", () => {
     imageFallback: false,
     stats: { added: 3, removed: 1, moved: 2, relabeled: 1, drawn: 4 },
   });
+});
+
+// ---------------------------------------------------------------------------
+// DIAGRAM_DEFAULT_FONT_FAMILY
+// ---------------------------------------------------------------------------
+
+test("DIAGRAM_DEFAULT_FONT_FAMILY is the code/monospace font (Cascadia = 3), not hand-drawn (Virgil = 1)", () => {
+  assert.equal(DIAGRAM_DEFAULT_FONT_FAMILY, 3, "Must be 3 (Cascadia / code font), not 1 (Virgil / hand-drawn)");
+});
+
+test("applyDiagramDefaultFontFamily sets the code font on text skeletons and container and arrow labels", () => {
+  const skeletons = [
+    { type: "rectangle", id: "A", label: { text: "Start" } },
+    { type: "arrow", id: "e1", label: { text: "yes" } },
+    { type: "text", id: "t1", text: "note" },
+    { type: "ellipse", id: "B" },
+  ];
+  const out = applyDiagramDefaultFontFamily(skeletons);
+  assert.equal(out, skeletons);
+  assert.equal(skeletons[0].label.fontFamily, DIAGRAM_DEFAULT_FONT_FAMILY);
+  assert.equal(skeletons[1].label.fontFamily, DIAGRAM_DEFAULT_FONT_FAMILY);
+  assert.equal(skeletons[2].fontFamily, DIAGRAM_DEFAULT_FONT_FAMILY);
+  assert.equal("fontFamily" in skeletons[3], false);
+});
+
+test("applyDiagramDefaultFontFamily leaves an explicit skeleton or label fontFamily alone", () => {
+  const skeletons = [
+    { type: "text", id: "t1", text: "note", fontFamily: 1 },
+    { type: "rectangle", id: "A", label: { text: "Start", fontFamily: 2 } },
+  ];
+  applyDiagramDefaultFontFamily(skeletons);
+  assert.equal(skeletons[0].fontFamily, 1);
+  assert.equal(skeletons[1].label.fontFamily, 2);
+  assert.deepEqual(applyDiagramDefaultFontFamily(null), null);
 });
 
 test("normalizeExcalidrawSceneTarget coerces hostile values to bounded safe ones", () => {
