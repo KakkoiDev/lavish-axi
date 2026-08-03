@@ -2220,3 +2220,404 @@ test("a local asset failure inside the artifact is reported as a fatal artifact 
   assert.equal(failure.body.failures[0].kind, "artifact-asset-unavailable");
   assert.match(failure.body.failures[0].detail, /logo\.png/);
 });
+
+test("send button text changes to Queue for Agent while agent is working", async () => {
+  const chrome = await createChromeHarness();
+
+  // Normal state: button says "Send to Agent"
+  assert.equal(chrome.element("send").disabled, false);
+  assert.equal(chrome.element("send").textContent, "Send to Agent");
+
+  // Agent becomes working
+  chrome.eventSource().listeners.get("agent-presence")({ data: JSON.stringify({ state: "working" }) });
+  await flushPromises();
+
+  assert.equal(chrome.element("send").disabled, false);
+  assert.equal(chrome.element("send").textContent, "Queue for Agent");
+
+  // Agent finishes working
+  chrome.eventSource().listeners.get("agent-presence")({ data: JSON.stringify({ state: "waiting" }) });
+  await flushPromises();
+
+  assert.equal(chrome.element("send").disabled, false);
+  assert.equal(chrome.element("send").textContent, "Send to Agent");
+});
+
+test("send button is disabled when session ends even if agent is working", async () => {
+  const chrome = await createChromeHarness();
+
+  chrome.eventSource().listeners.get("agent-presence")({ data: JSON.stringify({ state: "working" }) });
+  await flushPromises();
+  assert.equal(chrome.element("send").disabled, false);
+
+  // End session by simulating a successful end
+  chrome.element("end").onclick();
+  await flushPromises();
+
+  assert.equal(chrome.element("send").disabled, true);
+});
+
+test("messages queued while agent is working are held, not posted immediately", async () => {
+  const posts = [];
+  const chrome = await createChromeHarness({
+    fetchImpl: async (url, init = {}) => {
+      posts.push({ url, body: init.body ? JSON.parse(init.body) : null });
+      return { ok: true };
+    },
+  });
+
+  // Agent is working
+  chrome.eventSource().listeners.get("agent-presence")({ data: JSON.stringify({ state: "working" }) });
+  await flushPromises();
+
+  // Type a message and click Send
+  chrome.element("chatInput").value = "Fix the layout";
+  chrome.element("send").onclick();
+  await flushPromises();
+
+  // Message should be in the queue but NOT posted to the server
+  const queued = chrome.queued();
+  assert.equal(queued.length, 1);
+  assert.equal(queued[0].prompt, "Fix the layout");
+  assert.equal(posts.length, 0);
+
+  // Message should be visible in the pills
+  const pills = chrome.element("annotationPills");
+  assert.ok(pills.innerHTML.includes("Fix the layout"));
+});
+
+test("queued messages auto-flush when agent transitions from working to waiting", async () => {
+  const posts = [];
+  const chrome = await createChromeHarness({
+    fetchImpl: async (url, init = {}) => {
+      posts.push({ url, body: init.body ? JSON.parse(init.body) : null });
+      return { ok: true };
+    },
+  });
+
+  // Agent is working
+  chrome.eventSource().listeners.get("agent-presence")({ data: JSON.stringify({ state: "working" }) });
+  await flushPromises();
+
+  // Queue a message
+  chrome.element("chatInput").value = "Fix the layout";
+  chrome.element("send").onclick();
+  await flushPromises();
+  assert.equal(chrome.queued().length, 1);
+  assert.equal(posts.length, 0);
+
+  // Agent finishes working
+  chrome.eventSource().listeners.get("agent-presence")({ data: JSON.stringify({ state: "waiting" }) });
+  await flushPromises();
+
+  // Message should now be POSTed
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].url, "/api/abc/prompts");
+  // Queue should be cleared after successful post
+  assert.equal(chrome.queued().length, 0);
+});
+
+test("queued messages auto-flush when agent transitions from working to listening", async () => {
+  const posts = [];
+  const chrome = await createChromeHarness({
+    fetchImpl: async (url, init = {}) => {
+      posts.push({ url, body: init.body ? JSON.parse(init.body) : null });
+      return { ok: true };
+    },
+  });
+
+  // Agent is working
+  chrome.eventSource().listeners.get("agent-presence")({ data: JSON.stringify({ state: "working" }) });
+  await flushPromises();
+
+  // Queue a message
+  chrome.element("chatInput").value = "Fix the layout";
+  chrome.element("send").onclick();
+  await flushPromises();
+  assert.equal(chrome.queued().length, 1);
+  assert.equal(posts.length, 0);
+
+  // Agent starts listening (new poll)
+  chrome.eventSource().listeners.get("agent-presence")({ data: JSON.stringify({ state: "listening" }) });
+  await flushPromises();
+
+  // Message should now be POSTed
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].url, "/api/abc/prompts");
+  assert.equal(chrome.queued().length, 0);
+});
+
+test("multiple messages queued while working arrive in order", async () => {
+  const posts = [];
+  const chrome = await createChromeHarness({
+    fetchImpl: async (url, init = {}) => {
+      posts.push({ url, body: init.body ? JSON.parse(init.body) : null });
+      return { ok: true };
+    },
+  });
+
+  // Agent is working
+  chrome.eventSource().listeners.get("agent-presence")({ data: JSON.stringify({ state: "working" }) });
+  await flushPromises();
+
+  // Queue first message
+  chrome.element("chatInput").value = "First message";
+  chrome.element("send").onclick();
+  await flushPromises();
+
+  // Queue second message
+  chrome.element("chatInput").value = "Second message";
+  chrome.element("send").onclick();
+  await flushPromises();
+
+  assert.equal(chrome.queued().length, 2);
+  assert.equal(posts.length, 0);
+
+  // Agent finishes working
+  chrome.eventSource().listeners.get("agent-presence")({ data: JSON.stringify({ state: "waiting" }) });
+  await flushPromises();
+
+  // Both messages should be posted together in order
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].url, "/api/abc/prompts");
+  assert.equal(posts[0].body.prompts.length, 2);
+  assert.equal(posts[0].body.prompts[0].prompt, "First message");
+  assert.equal(posts[0].body.prompts[1].prompt, "Second message");
+  assert.equal(chrome.queued().length, 0);
+});
+
+test("a queued message can be removed before delivery", async () => {
+  const posts = [];
+  const storage = new Map();
+  const chrome1 = await createChromeHarness({
+    storage,
+    fetchImpl: async (url, init = {}) => {
+      posts.push({ url, body: init.body ? JSON.parse(init.body) : null });
+      return { ok: true };
+    },
+  });
+
+  // Agent is working
+  chrome1.eventSource().listeners.get("agent-presence")({ data: JSON.stringify({ state: "working" }) });
+  await flushPromises();
+
+  // Queue two messages
+  chrome1.element("chatInput").value = "Keep this one";
+  chrome1.element("send").onclick();
+  await flushPromises();
+
+  chrome1.element("chatInput").value = "Remove this one";
+  chrome1.element("send").onclick();
+  await flushPromises();
+
+  assert.equal(chrome1.queued().length, 2);
+
+  // Verify the pills HTML shows both messages with close buttons
+  const pillsHtml = chrome1.element("annotationPills").innerHTML;
+  assert.ok(pillsHtml.includes("Keep this one"));
+  assert.ok(pillsHtml.includes("Remove this one"));
+  assert.ok(pillsHtml.includes("pill-close"));
+
+  // Simulate removal: the user clicks the close button on the second prompt.
+  // The close-button handler calls removeQueuedPrompt(index, event) which
+  // splices from the in-memory queued array and persists. We simulate this
+  // by pruning storage and reloading (the chrome harness starts a fresh
+  // in-memory state from sessionStorage).
+  const queuedInStorage = JSON.parse(storage.get("lavish-axi:queued:abc"));
+  assert.equal(queuedInStorage.length, 2);
+  // Remove the second entry (index 1)
+  queuedInStorage.splice(1, 1);
+  storage.set("lavish-axi:queued:abc", JSON.stringify(queuedInStorage));
+
+  // Reload: create a new harness with the pruned storage
+  const chrome2 = await createChromeHarness({
+    storage,
+    fetchImpl: async (url, init = {}) => {
+      posts.push({ url, body: init.body ? JSON.parse(init.body) : null });
+      return { ok: true };
+    },
+  });
+
+  // After reload, only the kept message should be in the queue
+  assert.equal(chrome2.queued().length, 1);
+  assert.equal(chrome2.queued()[0].prompt, "Keep this one");
+
+  // Agent still working; nothing posted yet
+  chrome2.eventSource().listeners.get("agent-presence")({ data: JSON.stringify({ state: "working" }) });
+  await flushPromises();
+  const promptPostsWorking = posts.filter((p) => p.url === "/api/abc/prompts");
+  assert.equal(promptPostsWorking.length, 0);
+
+  // Agent finishes working — only the remaining message should be posted
+  chrome2.eventSource().listeners.get("agent-presence")({ data: JSON.stringify({ state: "waiting" }) });
+  await flushPromises();
+
+  const promptPosts = posts.filter((p) => p.url === "/api/abc/prompts");
+  assert.equal(promptPosts.length, 1);
+  assert.equal(promptPosts[0].body.prompts.length, 1);
+  assert.equal(promptPosts[0].body.prompts[0].prompt, "Keep this one");
+});
+
+test("queued messages survive a reload while agent is working", async () => {
+  const posts = [];
+  // First page session: queue a message while working
+  const chrome1 = await createChromeHarness({
+    fetchImpl: async (url, init = {}) => {
+      posts.push({ url, body: init.body ? JSON.parse(init.body) : null });
+      return { ok: true };
+    },
+  });
+
+  chrome1.eventSource().listeners.get("agent-presence")({ data: JSON.stringify({ state: "working" }) });
+  await flushPromises();
+
+  chrome1.element("chatInput").value = "Survive reload";
+  chrome1.element("send").onclick();
+  await flushPromises();
+
+  assert.equal(chrome1.queued().length, 1);
+
+  // Simulate a reload: create a new harness that reuses the SAME storage
+  const chrome2 = await createChromeHarness({
+    storage: chrome1.storage,
+    fetchImpl: async (url, init = {}) => {
+      posts.push({ url, body: init.body ? JSON.parse(init.body) : null });
+      return { ok: true };
+    },
+  });
+
+  // On reload, the queued message is restored from sessionStorage
+  assert.equal(chrome2.queued().length, 1);
+  assert.equal(chrome2.queued()[0].prompt, "Survive reload");
+
+  // Agent is still working after reload
+  chrome2.eventSource().listeners.get("agent-presence")({ data: JSON.stringify({ state: "working" }) });
+  await flushPromises();
+
+  // Message should still be queued, not posted
+  assert.equal(chrome2.queued().length, 1);
+  // The fetch calls from the first harness shouldn't matter; check that no prompt post happened
+  const promptPosts = posts.filter((p) => p.url === "/api/abc/prompts");
+  assert.equal(promptPosts.length, 0);
+
+  // Agent finishes working after reload
+  chrome2.eventSource().listeners.get("agent-presence")({ data: JSON.stringify({ state: "waiting" }) });
+  await flushPromises();
+
+  const promptPostsAfter = posts.filter((p) => p.url === "/api/abc/prompts");
+  assert.equal(promptPostsAfter.length, 1);
+  assert.equal(promptPostsAfter[0].body.prompts[0].prompt, "Survive reload");
+  assert.equal(chrome2.queued().length, 0);
+});
+
+test("send and end while agent is working queues message and ends session after flush", async () => {
+  const posts = [];
+  const chrome = await createChromeHarness({
+    fetchImpl: async (url, init = {}) => {
+      posts.push({ url, body: init.body ? JSON.parse(init.body) : null });
+      return { ok: true };
+    },
+  });
+
+  // Agent is working
+  chrome.eventSource().listeners.get("agent-presence")({ data: JSON.stringify({ state: "working" }) });
+  await flushPromises();
+
+  // Click "Queue & End"
+  chrome.element("chatInput").value = "Ship this";
+  chrome.element("sendAndEnd").onclick();
+  await flushPromises();
+
+  // Message is queued, not posted
+  assert.equal(chrome.queued().length, 1);
+  assert.equal(posts.length, 0);
+
+  // Agent finishes working — message should be posted with endSession flag
+  chrome.eventSource().listeners.get("agent-presence")({ data: JSON.stringify({ state: "waiting" }) });
+  await flushPromises();
+
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].url, "/api/abc/prompts");
+  assert.equal(posts[0].body.endSession, true);
+  assert.equal(posts[0].body.prompts.length, 1);
+  assert.equal(posts[0].body.prompts[0].prompt, "Ship this");
+
+  // Queue should be cleared and session ended
+  assert.equal(chrome.queued().length, 0);
+  assert.equal(chrome.element("chatInput").disabled, true);
+});
+
+test("End session flushes queued messages before ending", async () => {
+  const posts = [];
+  const chrome = await createChromeHarness({
+    fetchImpl: async (url, init = {}) => {
+      posts.push({ url, body: init.body ? JSON.parse(init.body) : null });
+      return { ok: true };
+    },
+  });
+
+  // Agent is working
+  chrome.eventSource().listeners.get("agent-presence")({ data: JSON.stringify({ state: "working" }) });
+  await flushPromises();
+
+  // Queue a message
+  chrome.element("chatInput").value = "Last message";
+  chrome.element("send").onclick();
+  await flushPromises();
+
+  assert.equal(chrome.queued().length, 1);
+  assert.equal(posts.length, 0);
+
+  // Click End session from the menu
+  chrome.element("end").onclick();
+  await flushPromises();
+
+  // The queued message should be posted with endSession, not a direct /api/abc/end call
+  const promptPost = posts.find((p) => p.url === "/api/abc/prompts");
+  assert.ok(promptPost);
+  assert.equal(promptPost.body.endSession, true);
+  assert.equal(promptPost.body.prompts[0].prompt, "Last message");
+
+  // The session should be marked ended
+  assert.equal(chrome.element("chatInput").disabled, true);
+});
+
+test("annotation prompts queued while working auto-flush with chat messages", async () => {
+  const posts = [];
+  const chrome = await createChromeHarness({
+    fetchImpl: async (url, init = {}) => {
+      posts.push({ url, body: init.body ? JSON.parse(init.body) : null });
+      return { ok: true };
+    },
+  });
+
+  // Agent is working
+  chrome.eventSource().listeners.get("agent-presence")({ data: JSON.stringify({ state: "working" }) });
+  await flushPromises();
+
+  // Annotate an element (simulates clicking in the iframe)
+  chrome.sendFrameMessage({
+    type: "lavish:queuePrompt",
+    prompt: { prompt: "Use plan B", selector: "input#plan-b", tag: "choice", text: "Plan B" },
+  });
+  await flushPromises();
+
+  // Also type a chat message
+  chrome.element("chatInput").value = "Also fix the header";
+  chrome.element("send").onclick();
+  await flushPromises();
+
+  assert.equal(chrome.queued().length, 2);
+  assert.equal(posts.length, 0);
+
+  // Agent finishes working
+  chrome.eventSource().listeners.get("agent-presence")({ data: JSON.stringify({ state: "waiting" }) });
+  await flushPromises();
+
+  assert.equal(posts.length, 1);
+  const prompts = posts[0].body.prompts;
+  assert.equal(prompts.length, 2);
+  assert.equal(prompts[0].prompt, "Use plan B");
+  assert.equal(prompts[1].prompt, "Also fix the header");
+  assert.equal(chrome.queued().length, 0);
+});
