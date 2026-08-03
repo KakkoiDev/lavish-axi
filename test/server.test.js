@@ -644,13 +644,13 @@ test("chrome shows agent working state when a previous poll has released", async
   assert.match(js, /spinner/);
 });
 
-test("chrome disables sending only while working or ended", async () => {
+test("chrome disables sending only when ended, allows queuing while working", async () => {
   const js = await chromeClientSource();
 
   assert.match(js, /let agentPresence = "waiting"/);
   assert.match(js, /function updateSendState\(\)/);
-  assert.match(js, /sendButton\.disabled = ended \|\| agentPresence === "working"/);
-  assert.match(js, /sendAndEndButton\.disabled = sendButton\.disabled/);
+  assert.match(js, /sendButton\.disabled = ended/);
+  assert.match(js, /sendAndEndButton\.disabled = ended/);
   assert.doesNotMatch(js, /hasContent/);
 });
 

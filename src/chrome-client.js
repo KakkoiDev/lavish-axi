@@ -217,8 +217,17 @@ function render() {
 }
 
 function updateSendState() {
-  sendButton.disabled = ended || agentPresence === "working";
-  sendAndEndButton.disabled = sendButton.disabled;
+  sendButton.disabled = ended;
+  sendAndEndButton.disabled = ended;
+  if (agentPresence === "working" && !ended) {
+    sendButton.textContent = "Queue for Agent";
+    const sendAndEndSpan = sendAndEndButton.querySelector("span");
+    if (sendAndEndSpan) sendAndEndSpan.textContent = "Queue & End";
+  } else {
+    sendButton.textContent = "Send to Agent";
+    const sendAndEndSpan = sendAndEndButton.querySelector("span");
+    if (sendAndEndSpan) sendAndEndSpan.textContent = "Send & End";
+  }
   if (warningsQueueButton) updateWarningSelectionState();
 }
 
@@ -298,6 +307,7 @@ function syncChat(chat) {
 }
 
 function setAgentPresence(state) {
+  const previousPresence = agentPresence;
   agentPresence = state === "listening" || state === "working" ? state : "waiting";
   updateSendState();
   if (presenceBanner) presenceBanner.hidden = ended || agentPresence !== "waiting";
@@ -305,6 +315,10 @@ function setAgentPresence(state) {
   if (agentPresence !== "working") {
     if (workingBubble) workingBubble.remove();
     workingBubble = null;
+    // Auto-flush queued messages when the agent becomes available after working.
+    if (previousPresence === "working" && queued.length > 0 && !ended) {
+      submitQueued();
+    }
     return;
   }
 
@@ -393,7 +407,7 @@ function requestSnapshot(action) {
 }
 
 function sendQueued(endAfter) {
-  if (ended || agentPresence === "working") return;
+  if (ended) return;
   closeMenus();
 
   const text = chatInput.value.trim();
@@ -411,6 +425,11 @@ function sendQueued(endAfter) {
   hideSendHint();
 
   if (endAfter) endAfterSubmit = true;
+
+  // While the agent is working, hold messages in the queue and deliver them
+  // on the next poll instead of blocking the input.
+  if (agentPresence === "working") return;
+
   requestSnapshot("submit");
 }
 
@@ -833,7 +852,7 @@ function updateWarningSelectionState() {
   warningsSelectAll.checked = selectable.length > 0 && selectedCount === selectable.length;
   warningsSelectAll.indeterminate = selectedCount > 0 && selectedCount < selectable.length;
   warningsSelected.textContent = selectedCount === 0 ? "None selected" : selectedCount + " selected";
-  warningsQueueButton.disabled = selectedCount === 0 || ended || agentPresence === "working";
+  warningsQueueButton.disabled = selectedCount === 0 || ended;
 }
 
 function toggleSelectAllWarnings() {
@@ -893,7 +912,7 @@ async function dismissWarning(id) {
 // One queued batch = one ordinary queued prompt. The CLI cannot tell it apart from any other
 // feedback, which is exactly the point: no parallel agent protocol.
 async function queueSelectedWarningFixes() {
-  if (ended || agentPresence === "working") return;
+  if (ended) return;
   const ids = [...selectedWarningIds];
   if (ids.length === 0) return;
   warningsQueueButton.disabled = true;
@@ -937,6 +956,12 @@ async function refreshLayoutWarnings() {
 
 async function endSession() {
   if (ended) return;
+  // Flush any queued messages before ending so they are not silently dropped.
+  if (queued.length > 0) {
+    endAfterSubmit = true;
+    await submitQueued();
+    return;
+  }
   const response = await fetch("/api/" + key + "/end", { method: "POST" });
   if (!response.ok) throw new Error("failed to end session");
   markSessionEnded();
