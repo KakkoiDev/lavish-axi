@@ -81,7 +81,7 @@ export const MERMAID_CDN_SNIPPET = `<script type="module">
         queued = false;
         const theme = pageIsDark() ? "dark" : "default";
         if (theme === applied) continue;
-        mermaid.initialize({ startOnLoad: false, theme, securityLevel: "strict" });
+        mermaid.initialize({ startOnLoad: false, theme, securityLevel: "strict", fontFamily: '"ui-monospace", "SFMono-Regular", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace' });
         for (const { el, src } of diagrams) {
           el.removeAttribute("data-processed");
           el.textContent = src;

@@ -8,6 +8,12 @@ export const WHITEBOARD_PROMPT_TAG = "whiteboard";
 export const EXCALIDRAW_SCENE_TARGET_TYPE = "excalidraw-scene";
 export const WHITEBOARD_TEXT_METRICS_VERSION = 1;
 
+// Default font family for newly converted diagram text in the whiteboard.
+// Matches FONT_FAMILY.Cascadia (3) from @excalidraw/excalidraw — the bundled
+// code/monospace font. Change this only to pick a different default face;
+// the numeric values are Virgil=1 (hand-drawn), Helvetica=2, Cascadia=3.
+export const DIAGRAM_DEFAULT_FONT_FAMILY = 3;
+
 export const SUMMARY_MAX_LINES = 40;
 export const SUMMARY_MAX_LINE_CHARS = 200;
 const SUMMARY_MOVE_EPSILON_PX = 2;

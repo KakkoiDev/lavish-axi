@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   createWhiteboardPersistencePayload,
+  DIAGRAM_DEFAULT_FONT_FAMILY,
   findDuplicateElementIds,
   normalizeExcalidrawSceneTarget,
   repairSavedSceneTextMetrics,
@@ -231,6 +232,14 @@ test("normalizeExcalidrawSceneTarget strips to the fixed shape", () => {
     imageFallback: false,
     stats: { added: 3, removed: 1, moved: 2, relabeled: 1, drawn: 4 },
   });
+});
+
+// ---------------------------------------------------------------------------
+// DIAGRAM_DEFAULT_FONT_FAMILY
+// ---------------------------------------------------------------------------
+
+test("DIAGRAM_DEFAULT_FONT_FAMILY is the code/monospace font (Cascadia = 3), not hand-drawn (Virgil = 1)", () => {
+  assert.equal(DIAGRAM_DEFAULT_FONT_FAMILY, 3, "Must be 3 (Cascadia / code font), not 1 (Virgil / hand-drawn)");
 });
 
 test("normalizeExcalidrawSceneTarget coerces hostile values to bounded safe ones", () => {
