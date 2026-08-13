@@ -197,3 +197,11 @@ test("mounted Excalidraw autosaves prompt only after genuine edits", { timeout: 
   assert.equal(result.viewOnlyAction, "convert");
   assert.equal(result.editedAction, "prompt");
 });
+
+test("real Excalidraw conversion defaults shapes to Architect roughness", { timeout: 90_000 }, async (t) => {
+  const result = await runBrowserFixture(t, "excalidraw-roughness");
+  if (!result) return;
+  assert.ok(result.shapeCount > 0);
+  assert.ok(result.textCount > 0);
+  assert.equal(result.allShapesArchitect, true, JSON.stringify(result.shapeRoughness));
+});

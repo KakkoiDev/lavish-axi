@@ -31,8 +31,10 @@ import "./whiteboard-frame.css";
 
 import {
   applyDiagramDefaultFontFamily,
+  applyDiagramDefaultRoughness,
   convertExcalidrawSkeletonsAfterFontsLoad,
   createWhiteboardPersistencePayload,
+  DIAGRAM_DEFAULT_ROUGHNESS,
   findDuplicateElementIds,
   repairSavedSceneTextMetrics,
   resolveWhiteboardInitAction,
@@ -427,11 +429,15 @@ async function loadSceneFonts(elements, files) {
   await document.fonts.ready;
 }
 
-async function convertSource(source) {
+// Exported so the real-browser regression test can exercise the production
+// conversion path directly, instead of a hand-copied reimplementation that
+// would not notice a regression in this function itself.
+export async function convertSource(source) {
   const { elements: parsedSkeletons, files } = await parseMermaidToExcalidraw(source, {
     themeVariables: { fontSize: "16px" },
   });
   const skeletons = restoreMermaidLabelLineBreaks(parsedSkeletons);
+  applyDiagramDefaultRoughness(skeletons);
   // Default newly converted diagram text to the code (monospace) font instead
   // of the hand-drawn face. Per-element font choices in saved scenes and
   // explicit skeleton fontFamily fields still override this default.
@@ -465,6 +471,7 @@ async function convertSource(source) {
 function defaultAppState() {
   return {
     viewBackgroundColor: "#ffffff",
+    currentItemRoughness: DIAGRAM_DEFAULT_ROUGHNESS,
   };
 }
 

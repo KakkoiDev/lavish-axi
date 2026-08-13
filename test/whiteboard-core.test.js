@@ -3,8 +3,10 @@ import test from "node:test";
 
 import {
   applyDiagramDefaultFontFamily,
+  applyDiagramDefaultRoughness,
   createWhiteboardPersistencePayload,
   DIAGRAM_DEFAULT_FONT_FAMILY,
+  DIAGRAM_DEFAULT_ROUGHNESS,
   findDuplicateElementIds,
   normalizeExcalidrawSceneTarget,
   repairSavedSceneTextMetrics,
@@ -648,4 +650,51 @@ test("restoreMermaidLabelLineBreaks leaves single-line labels and non-label fiel
   assert.deepEqual(out[1], label);
   assert.equal(out[2].label.text, "yes");
   assert.equal(out[2].id, "a1");
+});
+
+// ---------------------------------------------------------------------------
+// applyDiagramDefaultRoughness
+// ---------------------------------------------------------------------------
+
+test("DIAGRAM_DEFAULT_ROUGHNESS is Excalidraw's Architect sloppiness", () => {
+  assert.equal(DIAGRAM_DEFAULT_ROUGHNESS, 0);
+});
+
+test("applyDiagramDefaultRoughness fills roughness on shapes, arrows, and lines but not text", () => {
+  const skeletons = /** @type {Record<string, any>[]} */ ([
+    rect("r1"),
+    {
+      id: "a1",
+      type: "arrow",
+      x: 0,
+      y: 0,
+      points: [
+        [0, 0],
+        [10, 10],
+      ],
+    },
+    {
+      id: "l1",
+      type: "line",
+      x: 0,
+      y: 0,
+      points: [
+        [0, 0],
+        [10, 10],
+      ],
+    },
+    boundLabel("t1", "r1", "hello"),
+  ]);
+  applyDiagramDefaultRoughness(skeletons);
+  assert.equal(skeletons.find((s) => s.id === "r1").roughness, 0);
+  assert.equal(skeletons.find((s) => s.id === "a1").roughness, 0);
+  assert.equal(skeletons.find((s) => s.id === "l1").roughness, 0);
+  assert.equal(skeletons.find((s) => s.id === "t1").roughness, undefined);
+});
+
+test("applyDiagramDefaultRoughness leaves an explicit skeleton roughness alone", () => {
+  const skeletons = /** @type {Record<string, any>[]} */ ([rect("r1", { roughness: 2 }), rect("r2", { roughness: 0 })]);
+  applyDiagramDefaultRoughness(skeletons);
+  assert.equal(skeletons.find((s) => s.id === "r1").roughness, 2);
+  assert.equal(skeletons.find((s) => s.id === "r2").roughness, 0);
 });
