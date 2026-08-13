@@ -182,6 +182,7 @@ pnpm link
   Use **Queue feedback** to add a bounded edit summary plus local `.excalidraw` scene and PNG preview paths to the Conversation panel, then click **Send to Agent** to deliver it.
   The agent updates the artifact's Mermaid source, which remains authoritative.
   Flowchart, sequence, class, ER, and state diagrams convert to editable shapes; other diagram types are images that reviewers can draw and annotate.
+  Converted shapes and newly drawn ones start at Excalidraw's Architect sloppiness (clean, not hand-drawn); change a shape's Sloppiness in the toolbar to override it.
   Lavish changes only the browser view, so saved, standalone, and exported artifacts still render plain Mermaid.
 - **Server cleanup** - The detached server stops after the last session ends when nothing is connected, or after `LAVISH_AXI_IDLE_TIMEOUT_MS` (default 30 minutes) with no browser or poll connections.
   Set `LAVISH_AXI_IDLE_TIMEOUT_MS=0` or `off` to disable idle self-shutdown.
