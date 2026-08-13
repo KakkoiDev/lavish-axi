@@ -8,6 +8,24 @@ export const WHITEBOARD_PROMPT_TAG = "whiteboard";
 export const EXCALIDRAW_SCENE_TARGET_TYPE = "excalidraw-scene";
 export const WHITEBOARD_TEXT_METRICS_VERSION = 1;
 
+// Excalidraw's Sloppiness control is backed by a numeric roughness: Architect
+// = 0, Artist = 1, Cartoonist = 2. Lavish diagrams default to Architect so
+// converted shapes and freshly drawn strokes render clean instead of
+// hand-drawn.
+export const DIAGRAM_DEFAULT_ROUGHNESS = 0;
+
+// Fills in the default roughness on mermaid-to-excalidraw skeletons before
+// materialization. Text elements have no roughness rendering, so they are
+// left untouched; an explicit value already on the skeleton always wins.
+export function applyDiagramDefaultRoughness(skeletons) {
+  for (const skeleton of Array.isArray(skeletons) ? skeletons : []) {
+    if (skeleton && skeleton.type !== "text" && skeleton.roughness == null) {
+      skeleton.roughness = DIAGRAM_DEFAULT_ROUGHNESS;
+    }
+  }
+  return skeletons;
+}
+
 export const SUMMARY_MAX_LINES = 40;
 export const SUMMARY_MAX_LINE_CHARS = 200;
 const SUMMARY_MOVE_EPSILON_PX = 2;

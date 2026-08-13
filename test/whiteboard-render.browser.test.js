@@ -140,3 +140,84 @@ test("real Excalidraw rendering keeps loaded-font labels inside their text bound
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("real Excalidraw conversion defaults shapes to Architect roughness", { timeout: 30_000 }, async (t) => {
+  const chrome = await chromePath();
+  if (!chrome) {
+    t.skip("Chrome or Chromium is required for the real-render regression");
+    return;
+  }
+  const root = await mkdtemp(path.join(os.tmpdir(), "lavish-excalidraw-roughness-"));
+  try {
+    await esbuild.build({
+      entryPoints: [path.join(projectRoot, "test/fixtures/excalidraw-roughness.browser.jsx")],
+      outdir: root,
+      entryNames: "fixture",
+      assetNames: "assets/[name]-[hash]",
+      bundle: true,
+      format: "iife",
+      platform: "browser",
+      conditions: ["production"],
+      loader: { ".woff2": "file", ".woff": "file", ".ttf": "file" },
+      define: {
+        "process.env.NODE_ENV": '"production"',
+        "process.env.IS_PREACT": '"false"',
+      },
+    });
+    await cp(
+      path.join(projectRoot, "node_modules/@excalidraw/excalidraw/dist/prod/fonts"),
+      path.join(root, "whiteboard-assets/fonts"),
+      { recursive: true },
+    );
+    await writeFile(
+      path.join(root, "index.html"),
+      '<!doctype html><html><head><meta charset="utf-8"></head><body><script src="/fixture.js"></script></body></html>',
+    );
+    const server = http.createServer(async (request, response) => {
+      try {
+        const pathname = new URL(request.url, "http://127.0.0.1").pathname;
+        const relative = pathname === "/" ? "index.html" : decodeURIComponent(pathname.slice(1));
+        const file = path.resolve(root, relative);
+        if (file !== root && !file.startsWith(`${root}${path.sep}`)) throw new Error("outside fixture root");
+        const body = await readFile(file);
+        response.writeHead(200, { "content-type": contentType(file), "cache-control": "no-store" });
+        response.end(body);
+      } catch {
+        response.writeHead(404).end();
+      }
+    });
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+    try {
+      const address = server.address();
+      if (!address || typeof address === "string") throw new Error("test server did not bind to a TCP port");
+      const port = address.port;
+      const profile = path.join(root, "chrome-profile");
+      const { stdout } = await execFileAsync(
+        chrome,
+        [
+          "--headless=new",
+          "--disable-gpu",
+          "--disable-dev-shm-usage",
+          "--no-sandbox",
+          `--user-data-dir=${profile}`,
+          "--run-all-compositor-stages-before-draw",
+          "--virtual-time-budget=8000",
+          "--dump-dom",
+          `http://127.0.0.1:${port}/`,
+        ],
+        { maxBuffer: 8 * 1024 * 1024, timeout: 18_000 },
+      );
+      const result = resultFromDump(stdout);
+      assert.ok(result, "browser fixture did not report a result");
+      assert.equal(result.pass, true, result.error);
+      assert.ok(result.shapeCount > 0);
+      assert.ok(result.textCount > 0);
+      assert.equal(result.allShapesArchitect, true, JSON.stringify(result.shapeRoughness));
+    } finally {
+      server.closeAllConnections();
+      await new Promise((resolve) => server.close(resolve));
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

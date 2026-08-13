@@ -1,0 +1,3 @@
+{
+  "source": "flowchart TD\n  A[\"Alpha\"] --> B[\"Beta\"]\n  B --> C[\"Gamma\"]"
+}

@@ -30,8 +30,10 @@ import "@excalidraw/excalidraw/index.css";
 import "./whiteboard-frame.css";
 
 import {
+  applyDiagramDefaultRoughness,
   convertExcalidrawSkeletonsAfterFontsLoad,
   createWhiteboardPersistencePayload,
+  DIAGRAM_DEFAULT_ROUGHNESS,
   findDuplicateElementIds,
   repairSavedSceneTextMetrics,
   sanitizeSceneLink,
@@ -428,6 +430,7 @@ async function convertSource(source) {
   const { elements: skeletons, files } = await parseMermaidToExcalidraw(source, {
     themeVariables: { fontSize: "16px" },
   });
+  applyDiagramDefaultRoughness(skeletons);
   const materialize = (input) => {
     // Preserve Mermaid node/edge identity for edit summaries; regenerate only
     // when upstream emitted colliding ids (parallel edges), where uniqueness
@@ -454,6 +457,7 @@ async function convertSource(source) {
 function defaultAppState() {
   return {
     viewBackgroundColor: "#ffffff",
+    currentItemRoughness: DIAGRAM_DEFAULT_ROUGHNESS,
   };
 }
 
