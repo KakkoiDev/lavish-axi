@@ -426,7 +426,10 @@ async function loadSceneFonts(elements, files) {
   await document.fonts.ready;
 }
 
-async function convertSource(source) {
+// Exported so the real-browser regression test can exercise the production
+// conversion path directly, instead of a hand-copied reimplementation that
+// would not notice a regression in this function itself.
+export async function convertSource(source) {
   const { elements: skeletons, files } = await parseMermaidToExcalidraw(source, {
     themeVariables: { fontSize: "16px" },
   });
