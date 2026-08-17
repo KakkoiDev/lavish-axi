@@ -295,6 +295,8 @@ test("design output prints copy-pasteable CDN URLs so agents can opt in to Daisy
   assert.match(output.diagram_tooling.use_when, /hand-built div\/flexbox boxes/);
   assert.match(output.diagram_tooling.mermaid_cdn_snippet, /cdn\.jsdelivr\.net\/npm\/mermaid@\d+\.\d+\.\d+/);
   assert.match(output.diagram_tooling.mermaid_cdn_snippet, /mermaid\.initialize/);
+  assert.match(output.diagram_tooling.mermaid_cdn_snippet, /fontFamily/);
+  assert.match(output.diagram_tooling.mermaid_cdn_snippet, /monospace/);
   assert.match(
     output.diagram_tooling.cdn_urls.mermaid,
     /^https:\/\/cdn\.jsdelivr\.net\/npm\/mermaid@\d+\.\d+\.\d+\/dist\/mermaid\.esm\.min\.mjs$/,
