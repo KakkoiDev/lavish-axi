@@ -432,12 +432,21 @@ async function convertSource(source) {
   // Default newly converted diagram text to the code (monospace) font instead
   // of the hand-drawn face. Per-element font choices in saved scenes and
   // explicit skeleton fontFamily fields still override this default.
+  // Excalidraw text has no HTML rendering, so <br> variants become real
+  // newlines here.
+  const brToNewline = (text) => text.replace(/<br\s*\/?>/gi, "\n");
   for (const skel of skeletons) {
     if (skel.type === "text" && skel.fontFamily == null) {
       skel.fontFamily = DIAGRAM_DEFAULT_FONT_FAMILY;
     }
+    if (typeof skel.text === "string") {
+      skel.text = brToNewline(skel.text);
+    }
     if (skel.label && skel.label.fontFamily == null) {
       skel.label.fontFamily = DIAGRAM_DEFAULT_FONT_FAMILY;
+    }
+    if (skel.label && typeof skel.label.text === "string") {
+      skel.label.text = brToNewline(skel.label.text);
     }
   }
   const materialize = (input) => {
