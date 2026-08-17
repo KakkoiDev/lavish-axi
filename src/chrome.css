@@ -880,7 +880,6 @@ body.lavish {
   min-width: 0;
   min-height: 0;
   background: #fff;
-  position: relative;
   overflow: hidden;
 }
 .panel {
@@ -1059,6 +1058,36 @@ body.lavish {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.pill-attachments {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.pill-attachment {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  object-fit: cover;
+  background: var(--border);
+  border: 1px solid var(--border-strong);
+}
+.pill-attachment-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 4px;
+  border-radius: 5px;
+  background: var(--border);
+  border: 1px solid var(--border-strong);
+  color: var(--fg-muted);
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
 .pill-close {
   display: flex;
   align-items: center;
@@ -1193,24 +1222,6 @@ body.lavish {
 }
 .ended-action {
   margin-top: var(--space-8);
-}
-.layout-issue-banner {
-  position: absolute;
-  top: var(--space-8);
-  left: var(--space-8);
-  right: var(--space-8);
-  z-index: 20;
-  border: 1px solid rgba(244, 201, 93, 0.35);
-  border-radius: var(--radius-lg);
-  background: rgba(37, 35, 15, 0.92);
-  color: var(--brass-400);
-  padding: var(--space-6) var(--space-8);
-  font-size: var(--text-sm);
-  line-height: var(--lh-sm);
-  box-shadow: var(--shadow-tooltip);
-}
-.layout-issue-banner[hidden] {
-  display: none;
 }
 iframe {
   width: 100%;
