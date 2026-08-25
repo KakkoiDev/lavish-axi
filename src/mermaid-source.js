@@ -43,6 +43,10 @@ function elementHasMermaidClass(node) {
 
 function textContent(node) {
   if (node.nodeName === "#text") return String(node.value || "");
+  // Mermaid reads `.mermaid` elements as markup and treats `<br>` inside a
+  // label as a line break. parse5 gives it its own empty element node, so a
+  // plain text walk joins the text on either side ("Upload dialog6 images").
+  if (node.tagName === "br") return "<br/>";
   return Array.isArray(node.childNodes) ? node.childNodes.map(textContent).join("") : "";
 }
 

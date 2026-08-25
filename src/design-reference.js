@@ -65,7 +65,10 @@ export const MERMAID_CDN_SNIPPET = `<script type="module">
     return darkQuery.matches;
   }
 
-  const diagrams = [...document.querySelectorAll(".mermaid")].map((el) => ({ el, src: el.textContent }));
+  // innerHTML, not textContent: Mermaid reads these elements as markup and a
+  // <br> inside a label is a line break. textContent drops those elements, so
+  // re-seeding from it fuses the label ("Upload dialog6 images or 1 PDF").
+  const diagrams = [...document.querySelectorAll(".mermaid")].map((el) => ({ el, src: el.innerHTML }));
   let applied;
   let rendering = false;
   let queued = false;
@@ -84,7 +87,7 @@ export const MERMAID_CDN_SNIPPET = `<script type="module">
         mermaid.initialize({ startOnLoad: false, theme, securityLevel: "strict", fontFamily: '"ui-monospace", "SFMono-Regular", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace' });
         for (const { el, src } of diagrams) {
           el.removeAttribute("data-processed");
-          el.textContent = src;
+          el.innerHTML = src;
         }
         try {
           await mermaid.run({ nodes: diagrams.map((d) => d.el) });
