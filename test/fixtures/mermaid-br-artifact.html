@@ -1,0 +1,17 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Mermaid line-break artifact</title>
+  </head>
+  <body>
+    <pre class="mermaid">
+flowchart TD
+  U1[Upload dialog<br/>6 images or 1 PDF]
+  U2["Upload<br>6 images or 1 PDF"]
+  U3[Single line node]
+  U1 -->|queue<br/>batch| U2
+  U2 --> U3
+    </pre>
+  </body>
+</html>

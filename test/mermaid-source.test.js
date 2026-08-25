@@ -62,6 +62,20 @@ test("extractMermaidSources strips stray inner markup", () => {
   assert.equal(extractMermaidSources(html)[0].source, "graph TD; A-->B");
 });
 
+test("extractMermaidSources keeps <br> line breaks inside Mermaid labels", () => {
+  const html = `<pre class="mermaid">flowchart TD
+  U1[Upload dialog<br/>6 images or 1 PDF]
+  U2["Upload<br>6 images"]
+  U1 -->|queue<br />batch| U2</pre>`;
+  assert.equal(
+    extractMermaidSources(html)[0].source,
+    `flowchart TD
+  U1[Upload dialog<br/>6 images or 1 PDF]
+  U2["Upload<br/>6 images"]
+  U1 -->|queue<br/>batch| U2`,
+  );
+});
+
 test("extractMermaidSources handles single-quoted class attributes and empty input", () => {
   assert.equal(extractMermaidSources(`<div class='mermaid x'>graph TD; A-->B</div>`).length, 1);
   assert.deepEqual(extractMermaidSources(""), []);
