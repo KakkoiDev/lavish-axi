@@ -8,6 +8,15 @@ const queueStorageKey = "lavish-axi:queued:" + key;
 // Review-chrome state that must survive a browser refresh. Keyed per session so one review's
 // triage can never leak into another artifact's.
 const warningSelectionStorageKey = "lavish-axi:warning-selection:" + key;
+// Unsent review work: the composer's typed-but-unsent text, and the in-iframe review context
+// (Lavish-owned question answers, an open annotation card's text) the SDK reports out. Both are
+// held per tab rather than per browser: the reviewer capability is per chrome load, so two tabs
+// on one session are two independent drafts and a shared key would have each tab overwriting the
+// other's answers on every keystroke. The artifact iframe cannot persist its own state - it is
+// sandboxed without allow-same-origin, so `localStorage`/`sessionStorage` throw a SecurityError
+// inside it - which is why the chrome stores the SDK's reported state on its behalf.
+const composerStorageKey = "lavish-axi:composer:" + key;
+const reviewStateStorageKey = "lavish-axi:review-state:" + key;
 const internalQueueKeyField = "_lavishQueueKey";
 const initialChat = Array.isArray(sessionData.initialChat) ? sessionData.initialChat : [];
 const MODE_TOGGLE_HOTKEY_KEY = String(sessionData.modeToggleHotkeyKey || "").toLowerCase();
@@ -155,8 +164,10 @@ let submitQueuedAgain = false;
 let lastScroll = { x: 0, y: 0 };
 // In-iframe review context (an open annotation card's unsent text, Lavish-owned question
 // answers). The sandbox means the chrome cannot read it back after a reload, so the SDK reports
-// it as it changes and the chrome replays it once the new document is up.
-let lastReviewState = null;
+// it as it changes and the chrome replays it once the new document is up. It is also persisted,
+// so a refresh of the chrome page itself - which drops this variable along with the document -
+// still replays the answers into the artifact once the frame comes back.
+let lastReviewState = loadStoredReviewState();
 const ARTIFACT_SILENCE_PROBE_MS = 8000;
 const ARTIFACT_LOAD_BEGIN_RETRY_DELAYS_MS = [100, 300];
 let artifactLoadToken = "";
@@ -215,6 +226,42 @@ function saveJsonState(storageKey, value) {
   } catch {
     // The in-memory state still works if browser storage is unavailable.
   }
+}
+
+function clearStoredState(storageKey) {
+  try {
+    sessionStorage.removeItem(storageKey);
+  } catch {
+    // Nothing to undo: storage was never written in the first place.
+  }
+}
+
+function loadStoredComposerDraft() {
+  const draft = loadJsonState(composerStorageKey, "");
+  return typeof draft === "string" ? draft : "";
+}
+
+function persistComposerDraft(text) {
+  if (text) saveJsonState(composerStorageKey, text);
+  else clearStoredState(composerStorageKey);
+}
+
+function loadStoredReviewState() {
+  const state = loadJsonState(reviewStateStorageKey, null);
+  return state && typeof state === "object" && !Array.isArray(state) ? state : null;
+}
+
+function persistReviewState(state) {
+  if (state) saveJsonState(reviewStateStorageKey, state);
+  else clearStoredState(reviewStateStorageKey);
+}
+
+// Drafts are unsent work, so they are dropped the moment the work leaves the tab: the queue when
+// the server accepts it, the composer when its text moves into the queue, and everything when the
+// session ends.
+function clearReviewDrafts() {
+  clearStoredState(composerStorageKey);
+  clearStoredState(reviewStateStorageKey);
 }
 
 // A queued prompt is authored by the untrusted artifact iframe, so its attachment
@@ -561,6 +608,7 @@ function sendQueued(endAfter) {
     persistQueuedPrompts();
     addChat("user", text);
     chatInput.value = "";
+    persistComposerDraft("");
     render();
   }
   if (!queued.length) {
@@ -1114,6 +1162,7 @@ function markSessionEnded() {
   revealLayoutGate();
   postToFrame({ type: "lavish:setAnnotationMode", enabled: false });
   endedOverlay.hidden = false;
+  clearReviewDrafts();
 }
 
 function copyFilePath() {
@@ -1932,6 +1981,7 @@ window.addEventListener("message", (event) => {
   }
   if (msg.type === "lavish:reviewState") {
     lastReviewState = msg.state && typeof msg.state === "object" ? msg.state : null;
+    persistReviewState(lastReviewState);
   }
   if (msg.type === "lavish:artifactAssetFailure") {
     reportArtifactFailures(
@@ -2098,7 +2148,10 @@ chatInput.addEventListener("keydown", (event) => {
     sendQueued(false);
   }
 });
-chatInput.addEventListener("input", hideSendHint);
+chatInput.addEventListener("input", () => {
+  hideSendHint();
+  persistComposerDraft(chatInput.value);
+});
 copyPathButton.onclick = copyFilePath;
 reloadArtifactButton.onclick = reloadArtifact;
 copySnapshotButton.onclick = copyDomSnapshot;
@@ -2181,6 +2234,7 @@ events.addEventListener("layout-warnings", (event) => setLayoutWarnings(JSON.par
 // A reconnecting stream means this chrome may have missed updates while it was away.
 events.addEventListener("open", () => refreshLayoutWarnings());
 
+chatInput.value = loadStoredComposerDraft();
 render();
 setWarningsDrawerOpen(false);
 renderWarnings();

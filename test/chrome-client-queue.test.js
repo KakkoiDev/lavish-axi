@@ -3138,3 +3138,121 @@ test("a settled upload frees an in-flight slot for the next (D8)", async () => {
 
   assert.equal(resolvers.length, startedBefore + 1, "a freed slot admits the next upload");
 });
+
+class DOMExceptionLike extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "SecurityError";
+  }
+}
+
+// A throwing store models private-mode / storage-disabled browsers: the harness shim reads
+// through to this map, so every getItem/setItem/removeItem raises out of the client's own call
+// site rather than quietly returning nothing.
+/** @returns {Map<any, any>} */
+function unavailableStorage() {
+  const raise = () => {
+    throw new DOMExceptionLike("storage is disabled");
+  };
+  const storage = /** @type {any} */ (new Map());
+  storage.has = raise;
+  storage.get = raise;
+  storage.set = raise;
+  storage.delete = raise;
+  return storage;
+}
+
+function reviewStatePayload() {
+  return {
+    card: { selector: "#p1", text: "half-written annotation" },
+    fields: [{ key: "q1|q1|radio|b", index: 1, question: "q1", type: "radio", value: "b", checked: true }],
+  };
+}
+
+test("an unsent composer draft and in-artifact answers survive a chrome reload of the same session", async () => {
+  const first = await createChromeHarness();
+  const chatInput = first.element("chatInput");
+  chatInput.value = "half-written message";
+  chatInput.dispatch("input", {});
+  first.sendFrameMessage({ type: "lavish:reviewState", state: reviewStatePayload() });
+
+  // A browser refresh drops the document and every variable in it; only per-session storage
+  // carries the unsent work across.
+  const reloaded = await createChromeHarness({ storage: first.storage, artifactSrc: "/artifact/abc/index.html" });
+  assert.equal(reloaded.element("chatInput").value, "half-written message");
+  const restore = reloaded.postedToFrame.find((message) => message.type === "lavish:restoreReviewState");
+  // The replayed state crosses the vm realm boundary, so compare by value, not by prototype.
+  assert.deepEqual(JSON.parse(JSON.stringify(restore?.state)), reviewStatePayload());
+});
+
+test("review drafts do not leak into another session", async () => {
+  const first = await createChromeHarness();
+  first.element("chatInput").value = "meant for abc";
+  first.element("chatInput").dispatch("input", {});
+  first.sendFrameMessage({ type: "lavish:reviewState", state: reviewStatePayload() });
+
+  const other = await createChromeHarness({
+    storage: first.storage,
+    artifactSrc: "/artifact/zzz/index.html",
+    sessionData: { key: "zzz", file: "/tmp/other.html", modeToggleHotkeyKey: "i" },
+  });
+  assert.equal(other.element("chatInput").value, "");
+  assert.equal(
+    other.postedToFrame.some((message) => message.type === "lavish:restoreReviewState"),
+    false,
+  );
+});
+
+test("a composer draft is cleared once its text has been sent to the agent", async () => {
+  const chrome = await createChromeHarness();
+  const chatInput = chrome.element("chatInput");
+  chatInput.value = "ship it";
+  chatInput.dispatch("input", {});
+  assert.equal(chrome.storage.get("lavish-axi:composer:abc"), JSON.stringify("ship it"));
+
+  chrome.element("send").click();
+  chrome.sendFrameMessage({ type: "lavish:snapshot", snapshot: "uid=1 body" });
+  await flushPromises();
+  await flushPromises();
+
+  assert.equal(chrome.storage.has("lavish-axi:composer:abc"), false);
+  assert.deepEqual(chrome.queued(), []);
+  const reloaded = await createChromeHarness({ storage: chrome.storage });
+  assert.equal(reloaded.element("chatInput").value, "");
+});
+
+test("ending the session clears every unsent review draft", async () => {
+  const chrome = await createChromeHarness();
+  chrome.element("chatInput").value = "never sent";
+  chrome.element("chatInput").dispatch("input", {});
+  chrome.sendFrameMessage({ type: "lavish:reviewState", state: reviewStatePayload() });
+  assert.equal(chrome.storage.has("lavish-axi:composer:abc"), true);
+  assert.equal(chrome.storage.has("lavish-axi:review-state:abc"), true);
+
+  chrome.element("end").click();
+  await flushPromises();
+  await flushPromises();
+
+  assert.equal(chrome.element("endedOverlay").hidden, false);
+  assert.equal(chrome.storage.has("lavish-axi:composer:abc"), false);
+  assert.equal(chrome.storage.has("lavish-axi:review-state:abc"), false);
+});
+
+test("unavailable browser storage degrades to today's in-memory behavior instead of throwing", async () => {
+  const chrome = await createChromeHarness({ storage: unavailableStorage() });
+  const chatInput = chrome.element("chatInput");
+  chatInput.value = "typed with storage disabled";
+  chatInput.dispatch("input", {});
+  chrome.sendFrameMessage({ type: "lavish:reviewState", state: reviewStatePayload() });
+  chrome.sendFrameMessage({
+    type: "lavish:queuePrompt",
+    prompt: { prompt: "Review the title", selector: "h1", tag: "annotation", text: "Title" },
+  });
+
+  // Nothing persisted, but the in-memory review surface is untouched.
+  assert.match(chrome.element("annotationPills").innerHTML, /Review the title/);
+  chrome.element("end").click();
+  await flushPromises();
+  await flushPromises();
+  assert.equal(chrome.element("endedOverlay").hidden, false);
+});
