@@ -199,9 +199,16 @@ test("mounted Excalidraw autosaves prompt only after genuine edits", { timeout: 
 });
 
 test("real Excalidraw conversion defaults shapes to Architect roughness", { timeout: 90_000 }, async (t) => {
-  const result = await runBrowserFixture(t, "excalidraw-roughness");
+  const result = await runBrowserFixture(t, "excalidraw-diagram-defaults");
   if (!result) return;
   assert.ok(result.shapeCount > 0);
-  assert.ok(result.textCount > 0);
   assert.equal(result.allShapesArchitect, true, JSON.stringify(result.shapeRoughness));
+  assert.equal(result.drawRoughnessArchitect, true, "newly drawn shapes must start at Architect sloppiness");
+});
+
+test("real Excalidraw conversion defaults diagram text to the code font", { timeout: 90_000 }, async (t) => {
+  const result = await runBrowserFixture(t, "excalidraw-diagram-defaults");
+  if (!result) return;
+  assert.ok(result.textCount > 0);
+  assert.equal(result.allTextMonospace, true, JSON.stringify(result.textFontFamilies));
 });

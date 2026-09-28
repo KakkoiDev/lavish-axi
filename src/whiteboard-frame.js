@@ -467,8 +467,9 @@ export async function convertSource(source) {
 // Theme is passed only through the <Excalidraw theme> prop - putting it in
 // appState as well double-applies the dark-mode invert filter and washes the
 // canvas out. The background stays a light paper color in both themes; dark
-// mode derives its rendering from it via Excalidraw's own filter.
-function defaultAppState() {
+// mode derives its rendering from it via Excalidraw's own filter. Exported so
+// the real-browser regression test reads the app state the editor mounts with.
+export function defaultAppState() {
   return {
     viewBackgroundColor: "#ffffff",
     currentItemRoughness: DIAGRAM_DEFAULT_ROUGHNESS,
