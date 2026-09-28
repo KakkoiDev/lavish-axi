@@ -36,7 +36,7 @@ unresolved reference computes to the initial value. Detecting a handful of high-
 **Insertion points:**
 
 - Detection: `src/chrome-client.js`, alongside the existing in-iframe geometry probes.
-- User-facing copy: `src/layout-warnings.js`, `RULE_DESCRIPTIONS` around line 85-99. Add a rule id
+- User-facing copy: `src/layout-warnings.js`, `RULE_DESCRIPTIONS` around line 69. Add a rule id
   such as `unresolved-custom-property`.
 - The existing fingerprint, status and serialization machinery
   (`layoutWarningFingerprint`, `serializeLayoutWarning`) needs no change; a new rule id flows through

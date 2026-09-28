@@ -1,6 +1,6 @@
 # Fork notes - for a possible upstream PR
 
-Fork of `kunchenguid/lavish-axi`. Branch `fix/styling-validity-audit`.
+Fork of `kunchenguid/lavish-axi`. The styling-validity work lives on `main`, replayed on top of `upstream-main`.
 See `ISSUES.md` for the two gaps and where they sit in the codebase.
 
 ## What is actually fixed
@@ -9,14 +9,14 @@ See `ISSUES.md` for the two gaps and where they sit in the codebase.
 pipeline, so running this fork behaves identically to upstream. Do not open a PR describing this as a
 working fix.
 
-| Commit    | What it adds                        | Wired in |
-| --------- | ----------------------------------- | -------- |
-| `1b86e40` | `ISSUES.md` - the two gaps, located | n/a      |
-| `93b32d1` | `src/style-validity.js` + 9 tests   | **No**   |
+| Commit                                                                     | What it adds                        | Wired in |
+| -------------------------------------------------------------------------- | ----------------------------------- | -------- |
+| `docs: record the two styling-validity gaps found by a real failure`       | `ISSUES.md` - the two gaps, located | n/a      |
+| `feat(audit): detect declarations dropped by unresolved custom properties` | `src/style-validity.js` + 9 tests   | **No**   |
 
 ## The commit that matters
 
-`93b32d1 feat(audit): detect declarations dropped by unresolved custom properties`
+`feat(audit): detect declarations dropped by unresolved custom properties`
 
 **The defect it targets.** A `var(--x)` naming an undefined custom property makes the whole
 declaration invalid at computed-value time, so the browser drops it. The element keeps its classes,
@@ -48,11 +48,11 @@ breaking it and re-running, not by assumption.
 1. Wire `collectStyleValidityFindings` into the in-page audit in `src/artifact-sdk.js`, next to the
    geometry probes.
 2. Add an `unresolved-custom-property` entry to `RULE_DESCRIPTIONS` in `src/layout-warnings.js`
-   (around line 85-99). The fingerprint, status and serialization machinery needs no change.
+   (around line 69). The fingerprint, status and serialization machinery needs no change.
 3. Add a browser fixture under `test/fixtures/layout-audit/` reproducing the v4/v5 mismatch, and
    assert the audit reports it. Until that exists, the end-to-end path is unproven.
 4. Issue 2 (pinned design versions are advisory only) is untouched.
-5. Rebase onto upstream. This fork was taken at 0.1.45.
+5. The fork was replayed onto upstream 0.1.79. Replay again onto the current `upstream-main` first.
 
 ## Local install
 
@@ -73,6 +73,6 @@ To revert to the published package: `npm i -g lavish-axi` for each install.
 
 ## Suite status
 
-691 pass, 2 fail, both caused by the npm lockfile above and both passing once it is deleted. One
-browser test times out without `LAVISH_AXI_BROWSER_E2E=1` and a real browser, which is expected.
-`npm run check` has not been run end to end.
+On the 0.1.79 replay, `pnpm test` gives 1398 pass, 1 fail, 7 skipped. The failure is
+`real Excalidraw rendering keeps loaded-font labels inside their text bounds`, which fails the same
+way on unmodified upstream 0.1.79 on this machine, so it is environmental, not fork-caused.
